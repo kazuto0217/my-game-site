@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⌨️ TYPING</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #00d4ff;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 2.2rem;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 20px #00d4ff, 0 0 40px #00d4ff;
+    margin-bottom: 15px;
+  }
+  #hud {
+    display: flex; gap: 40px; margin-bottom: 20px;
+  }
+  .hud-item { text-align: center; }
+  .hud-label { font-size: 0.7rem; color: #666; letter-spacing: 0.15em; }
+  .hud-val { font-size: 1.4rem; color: #00d4ff; text-shadow: 0 0 10px #00d4ff; }
+  #timer-bar-wrap {
+    width: 100%; max-width: 500px;
+    height: 6px; background: #111; border-radius: 3px; margin-bottom: 20px;
+    overflow: hidden;
+  }
+  #timer-bar {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #00d4ff, #a855f7);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 10px #00d4ff;
+  }
+  #word-display {
+    font-size: 2.5rem;
+    letter-spacing: 0.15em;
+    min-height: 60px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .char { color: #333; }
+  .char.correct { color: #00ff88; text-shadow: 0 0 10px #00ff88; }
+  .char.wrong { color: #ff0055; text-shadow: 0 0 10px #ff0055; }
+  .char.current { color: #00d4ff; text-shadow: 0 0 15px #00d4ff; border-bottom: 2px solid #00d4ff; }
+  #input {
+    width: 100%; max-width: 500px;
+    background: #050510;
+    border: 2px solid #00d4ff44;
+    border-radius: 8px;
+    color: #00d4ff;
+    font-family: 'Courier New', monospace;
+    font-size: 1.2rem;
+    padding: 12px 20px;
+    text-align: center;
+    outline: none;
+    letter-spacing: 0.15em;
+    box-shadow: 0 0 20px #00d4ff22;
+    transition: border-color 0.2s;
+  }
+  #input:focus { border-color: #00d4ff; box-shadow: 0 0 30px #00d4ff44; }
+  #input.wrong { border-color: #ff0055; box-shadow: 0 0 20px #ff005544; }
+  #words-list {
+    display: flex; flex-wrap: wrap; gap: 8px; max-width: 500px;
+    margin-top: 20px; justify-content: center;
+  }
+  .word-chip {
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 0.8rem; letter-spacing: 0.1em;
+    border: 1px solid #222; color: #555;
+    transition: all 0.3s;
+  }
+  .word-chip.done { border-color: #00ff8844; color: #00ff8888; }
+  .word-chip.current { border-color: #00d4ff; color: #00d4ff; background: #00d4ff11; }
+  #overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #0a0a0fee;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 15px; z-index: 10;
+  }
+  #overlay h2 { font-size: 1.8rem; text-shadow: 0 0 20px #00d4ff; letter-spacing: 0.2em; }
+  #overlay p { color: #888; font-size: 0.85rem; letter-spacing: 0.1em; }
+  .btn {
+    background: transparent;
+    border: 2px solid #00d4ff;
+    color: #00d4ff;
+    padding: 12px 40px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    text-shadow: 0 0 10px #00d4ff;
+    box-shadow: 0 0 20px #00d4ff44;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: #00d4ff22; box-shadow: 0 0 30px #00d4ffaa; }
+  #mode-select { display: flex; gap: 10px; }
+  .mode-btn {
+    padding: 8px 18px; border: 1px solid #333; color: #666;
+    background: transparent; font-family: 'Courier New', monospace;
+    font-size: 0.8rem; cursor: pointer; border-radius: 4px; letter-spacing: 0.1em;
+  }
+  .mode-btn.active, .mode-btn:hover { border-color: #00d4ff; color: #00d4ff; }
+</style>
+</head>
+<body>
+<h1>⌨️ TYPING</h1>
+<div id="hud">
+  <div class="hud-item"><div class="hud-label">WPM</div><div class="hud-val" id="wpm">0</div></div>
+  <div class="hud-item"><div class="hud-label">ACC</div><div class="hud-val" id="acc">100%</div></div>
+  <div class="hud-item"><div class="hud-label">SCORE</div><div class="hud-val" id="score">0</div></div>
+</div>
+<div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+<div id="word-display"></div>
+<input id="input" type="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="ここに入力..." disabled>
+<div id="words-list"></div>
+
+<div id="overlay">
+  <h2>TYPING</h2>
+  <p>表示された単語を素早く入力しよう</p>
+  <div id="mode-select">
+    <button class="mode-btn active" data-mode="en" onclick="setMode('en',this)">ENGLISH</button>
+    <button class="mode-btn" data-mode="num" onclick="setMode('num',this)">NUMBERS</button>
+  </div>
+  <button class="btn" onclick="startGame()">START</button>
+</div>
+
+<script>
+const EN_WORDS = ['game','code','pixel','cyber','neon','laser','glitch','turbo','blast','delta','nova','force','alpha','prime','surge','ultra','hyper','swift','flash','storm','ghost','shadow','blade','pulse','nexus','boost','elite','power','rapid','sonic'];
+const NUM_WORDS = ()=> Array.from({length:6},()=>Math.floor(Math.random()*9000+1000).toString());
+let mode='en', words=[], wordIdx=0, charIdx=0, score=0, correct=0, total=0, timeLeft=60, timer=null, started=false;
+const TIME = 60;
+
+function setMode(m, btn) {
+  mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function genWords() {
+  if(mode==='num') return NUM_WORDS();
+  return [...EN_WORDS].sort(()=>Math.random()-0.5).slice(0,20);
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display='none';
+  words=genWords(); wordIdx=0; charIdx=0; score=0; correct=0; total=0; timeLeft=TIME; started=false;
+  renderWordList();
+  showWord();
+  document.getElementById('input').value='';
+  document.getElementById('input').disabled=false;
+  document.getElementById('input').focus();
+  document.getElementById('timer-bar').style.width='100%';
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    if(!started) return;
+    timeLeft-=0.1;
+    document.getElementById('timer-bar').style.width=(timeLeft/TIME*100)+'%';
+    if(timeLeft<=0) endGame();
+  },100);
+}
+
+function showWord() {
+  const w=words[wordIdx]||'';
+  let html='';
+  for(let i=0;i<w.length;i++) {
+    let cls='char';
+    if(i<charIdx) cls='char correct';
+    else if(i===charIdx) cls='char current';
+    html+=`<span class="${cls}">${w[i]}</span>`;
+  }
+  document.getElementById('word-display').innerHTML=html;
+  renderWordList();
+}
+
+function renderWordList() {
+  const el=document.getElementById('words-list');
+  el.innerHTML=words.slice(Math.max(0,wordIdx-3), wordIdx+8).map((w,i)=>{
+    const realIdx = Math.max(0,wordIdx-3)+i;
+    let cls='word-chip';
+    if(realIdx<wordIdx) cls+=' done';
+    else if(realIdx===wordIdx) cls+=' current';
+    return `<span class="${cls}">${w}</span>`;
+  }).join('');
+}
+
+document.getElementById('input').addEventListener('input', e => {
+  if(!started){ started=true; }
+  const val=e.target.value;
+  const word=words[wordIdx];
+  if(!word) return;
+  // check for space = submit
+  if(val.endsWith(' ')) {
+    const typed=val.trim();
+    total++;
+    if(typed===word){ correct++; score+=Math.max(10, Math.floor(timeLeft)*2); }
+    document.getElementById('input').value='';
+    document.getElementById('input').classList.remove('wrong');
+    charIdx=0;
+    wordIdx++;
+    if(wordIdx>=words.length){ words=[...words,...genWords()]; renderWordList(); }
+    showWord();
+    updateHUD();
+    return;
+  }
+  charIdx=val.length;
+  const wrong=val!==word.slice(0,val.length);
+  document.getElementById('input').classList.toggle('wrong', wrong);
+  showWord();
+});
+
+function updateHUD() {
+  const elapsed=TIME-timeLeft;
+  const wpm=elapsed>0?Math.round((correct/(elapsed/60))):0;
+  const acc=total>0?Math.round(correct/total*100):100;
+  document.getElementById('wpm').textContent=wpm;
+  document.getElementById('acc').textContent=acc+'%';
+  document.getElementById('score').textContent=score;
+}
+
+function endGame() {
+  clearInterval(timer);
+  document.getElementById('input').disabled=true;
+  const elapsed=TIME;
+  const wpm=Math.round(correct/(elapsed/60));
+  const acc=total>0?Math.round(correct/total*100):0;
+  const ov=document.getElementById('overlay');
+  ov.innerHTML=`
+    <h2 style="color:#00ff88;text-shadow:0 0 20px #00ff88">FINISH! ⚡</h2>
+    <p>WPM: <span style="color:#00d4ff">${wpm}</span></p>
+    <p>ACC: <span style="color:#00d4ff">${acc}%</span></p>
+    <p>SCORE: <span style="color:#00d4ff">${score}</span></p>
+    <button class="btn" onclick="location.reload()">RETRY</button>
+  `;
+  ov.style.display='flex';
+}
+</script>
+</body>
+</html>

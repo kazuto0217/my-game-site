@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐍 SNAKE</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #00ff88;
+  }
+  h1 {
+    font-size: 2.5rem;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 20px #00ff88, 0 0 40px #00ff88;
+    margin-bottom: 10px;
+  }
+  #score-board {
+    display: flex; gap: 40px; margin-bottom: 15px;
+  }
+  .score-item { text-align: center; }
+  .score-label { font-size: 0.7rem; color: #888; letter-spacing: 0.2em; }
+  .score-value { font-size: 1.5rem; color: #00ff88; text-shadow: 0 0 10px #00ff88; }
+  #canvas-wrap {
+    border: 2px solid #00ff88;
+    box-shadow: 0 0 30px #00ff8855, inset 0 0 30px #00ff8811;
+    position: relative;
+  }
+  canvas { display: block; background: #050510; }
+  #overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #050510ee;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 15px;
+  }
+  #overlay h2 { font-size: 1.8rem; text-shadow: 0 0 20px #00ff88; letter-spacing: 0.2em; }
+  #overlay p { color: #888; font-size: 0.85rem; letter-spacing: 0.1em; }
+  #start-btn {
+    background: transparent;
+    border: 2px solid #00ff88;
+    color: #00ff88;
+    padding: 12px 40px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    text-shadow: 0 0 10px #00ff88;
+    box-shadow: 0 0 20px #00ff8844;
+    transition: all 0.2s;
+  }
+  #start-btn:hover {
+    background: #00ff8822;
+    box-shadow: 0 0 30px #00ff88aa;
+  }
+  #controls { margin-top: 10px; color: #555; font-size: 0.75rem; letter-spacing: 0.1em; text-align: center; }
+</style>
+</head>
+<body>
+<h1>🐍 SNAKE</h1>
+<div id="score-board">
+  <div class="score-item">
+    <div class="score-label">SCORE</div>
+    <div class="score-value" id="score">0</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">BEST</div>
+    <div class="score-value" id="best">0</div>
+  </div>
+  <div class="score-item">
+    <div class="score-label">LEVEL</div>
+    <div class="score-value" id="level">1</div>
+  </div>
+</div>
+<div id="canvas-wrap">
+  <canvas id="c" width="400" height="400"></canvas>
+  <div id="overlay">
+    <h2>SNAKE</h2>
+    <p>矢印キー / WASDで操作</p>
+    <button id="start-btn" onclick="startGame()">START GAME</button>
+  </div>
+</div>
+<div id="controls">↑↓←→ or WASD | スペースで一時停止</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const GRID = 20, SIZE = canvas.width / GRID;
+let snake, dir, nextDir, food, score, best = 0, level, speed, loop, running, paused;
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  score = 0; level = 1; speed = 150;
+  running = true; paused = false;
+  placeFood();
+  updateScore();
+  clearInterval(loop);
+  loop = setInterval(tick, speed);
+}
+
+function placeFood() {
+  let pos;
+  do {
+    pos = {x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID)};
+  } while (snake.some(s => s.x===pos.x && s.y===pos.y));
+  food = pos;
+}
+
+function tick() {
+  if (!running || paused) return;
+  dir = nextDir;
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+  // wall wrap
+  head.x = (head.x + GRID) % GRID;
+  head.y = (head.y + GRID) % GRID;
+  // self collision
+  if (snake.some(s => s.x===head.x && s.y===head.y)) { gameOver(); return; }
+  snake.unshift(head);
+  if (head.x===food.x && head.y===food.y) {
+    score += level * 10;
+    if (score >= level * 50) { level++; clearInterval(loop); speed = Math.max(60, 150 - level*15); loop = setInterval(tick, speed); }
+    placeFood();
+    updateScore();
+  } else {
+    snake.pop();
+  }
+  draw();
+}
+
+function draw() {
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // grid dots
+  ctx.fillStyle = '#0a0a20';
+  for (let x=0;x<GRID;x++) for (let y=0;y<GRID;y++) {
+    ctx.fillRect(x*SIZE+SIZE/2-1, y*SIZE+SIZE/2-1, 2, 2);
+  }
+  // food
+  const fx = food.x*SIZE, fy = food.y*SIZE;
+  ctx.shadowBlur = 20; ctx.shadowColor = '#ff0055';
+  ctx.fillStyle = '#ff0055';
+  ctx.beginPath(); ctx.arc(fx+SIZE/2, fy+SIZE/2, SIZE/2-2, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // snake
+  snake.forEach((s,i) => {
+    const t = 1 - i/snake.length;
+    ctx.shadowBlur = i===0 ? 20 : 5;
+    ctx.shadowColor = '#00ff88';
+    ctx.fillStyle = i===0 ? '#00ff88' : `rgba(0,${Math.floor(155+t*100)},${Math.floor(100+t*36)},${0.5+t*0.5})`;
+    const pad = i===0 ? 1 : 2;
+    ctx.beginPath();
+    ctx.roundRect(s.x*SIZE+pad, s.y*SIZE+pad, SIZE-pad*2, SIZE-pad*2, i===0?4:2);
+    ctx.fill();
+  });
+  ctx.shadowBlur = 0;
+}
+
+function gameOver() {
+  running = false;
+  clearInterval(loop);
+  if (score > best) best = score;
+  const ov = document.getElementById('overlay');
+  ov.innerHTML = `
+    <h2 style="color:#ff0055;text-shadow:0 0 20px #ff0055">GAME OVER</h2>
+    <p>SCORE: <span style="color:#00ff88">${score}</span></p>
+    <p>BEST: <span style="color:#00ff88">${best}</span></p>
+    <button id="start-btn" onclick="startGame()" style="margin-top:10px">RETRY</button>
+  `;
+  ov.style.display = 'flex';
+  document.getElementById('best').textContent = best;
+}
+
+function updateScore() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('best').textContent = best;
+  document.getElementById('level').textContent = level;
+}
+
+document.addEventListener('keydown', e => {
+  const map = {
+    ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+    w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+    W:{x:0,y:-1}, S:{x:0,y:1}, A:{x:-1,y:0}, D:{x:1,y:0},
+  };
+  if (e.key === ' ') { paused = !paused; return; }
+  const nd = map[e.key];
+  if (nd && !(nd.x===-dir.x && nd.y===-dir.y)) { nextDir = nd; e.preventDefault(); }
+});
+
+// Initial draw
+ctx.fillStyle = '#050510'; ctx.fillRect(0,0,canvas.width,canvas.height);
+</script>
+</body>
+</html>

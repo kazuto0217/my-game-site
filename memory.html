@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 MEMORY</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #a855f7;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 2.2rem;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 20px #a855f7, 0 0 40px #a855f7;
+    margin-bottom: 15px;
+  }
+  #hud {
+    display: flex; gap: 40px; margin-bottom: 20px;
+  }
+  .hud-item { text-align: center; }
+  .hud-label { font-size: 0.7rem; color: #666; letter-spacing: 0.15em; }
+  .hud-val { font-size: 1.4rem; color: #a855f7; text-shadow: 0 0 10px #a855f7; }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    max-width: 380px;
+    width: 100%;
+  }
+  .card {
+    aspect-ratio: 1;
+    cursor: pointer;
+    perspective: 600px;
+  }
+  .card-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.4s;
+    border-radius: 8px;
+  }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .card-front, .card-back {
+    position: absolute; width: 100%; height: 100%;
+    backface-visibility: hidden;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card-front {
+    background: #0d0d1a;
+    border: 1px solid #333;
+    font-size: 0.6rem;
+    color: #333;
+  }
+  .card-front::after { content: '?'; font-size: 1.5rem; color: #444; }
+  .card-back {
+    background: #150d2a;
+    border: 1px solid #a855f7;
+    box-shadow: 0 0 15px #a855f744;
+    transform: rotateY(180deg);
+    font-size: 2rem;
+  }
+  .card.matched .card-back {
+    border-color: #00ff88;
+    box-shadow: 0 0 20px #00ff8866;
+    background: #0a1a12;
+  }
+  #overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #0a0a0fee;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 15px; z-index: 10;
+  }
+  #overlay h2 { font-size: 1.8rem; text-shadow: 0 0 20px #a855f7; letter-spacing: 0.2em; }
+  #overlay p { color: #888; font-size: 0.85rem; letter-spacing: 0.1em; }
+  .btn {
+    background: transparent;
+    border: 2px solid #a855f7;
+    color: #a855f7;
+    padding: 12px 40px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    text-shadow: 0 0 10px #a855f7;
+    box-shadow: 0 0 20px #a855f744;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: #a855f722; box-shadow: 0 0 30px #a855f7aa; }
+  #difficulty { display: flex; gap: 10px; }
+  .diff-btn {
+    padding: 8px 20px; border: 1px solid #555; color: #888;
+    font-family: 'Courier New', monospace; font-size: 0.8rem;
+    cursor: pointer; background: transparent; letter-spacing: 0.1em; border-radius: 4px;
+  }
+  .diff-btn.active, .diff-btn:hover { border-color: #a855f7; color: #a855f7; }
+</style>
+</head>
+<body>
+<h1>🧠 MEMORY</h1>
+<div id="hud">
+  <div class="hud-item"><div class="hud-label">MOVES</div><div class="hud-val" id="moves">0</div></div>
+  <div class="hud-item"><div class="hud-label">PAIRS</div><div class="hud-val" id="pairs">0/8</div></div>
+  <div class="hud-item"><div class="hud-label">TIME</div><div class="hud-val" id="timer">0:00</div></div>
+</div>
+<div id="grid"></div>
+
+<div id="overlay">
+  <h2>MEMORY</h2>
+  <p>同じ絵文字のペアを見つけよう</p>
+  <div id="difficulty">
+    <button class="diff-btn active" onclick="setDiff(4,8,'EASY')">EASY<br><small>4×4</small></button>
+    <button class="diff-btn" onclick="setDiff(4,8,'HARD')">HARD<br><small>高速フリップ</small></button>
+  </div>
+  <button class="btn" onclick="startGame()">START</button>
+</div>
+
+<script>
+const EMOJIS = ['🎮','🕹️','🏆','⚡','💎','🔥','🌟','👾','🤖','🦾','🎯','🚀'];
+let cards=[], flipped=[], matched=0, moves=0, timer=null, sec=0, diff='EASY', cols=4, total=8, canFlip=true;
+
+function setDiff(c,t,d) {
+  cols=c; total=t; diff=d;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+  event.target.closest('.diff-btn').classList.add('active');
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display='none';
+  clearInterval(timer); sec=0; moves=0; matched=0; flipped=[]; canFlip=true;
+  document.getElementById('grid').style.gridTemplateColumns=`repeat(${cols},1fr)`;
+  const emojis=[...EMOJIS.slice(0,total/2),...EMOJIS.slice(0,total/2)].sort(()=>Math.random()-0.5);
+  document.getElementById('grid').innerHTML='';
+  cards=[];
+  emojis.forEach((e,i)=>{
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=`<div class="card-inner"><div class="card-front"></div><div class="card-back">${e}</div></div>`;
+    card.dataset.emoji=e; card.dataset.idx=i;
+    card.addEventListener('click',()=>flipCard(card));
+    document.getElementById('grid').appendChild(card);
+    cards.push(card);
+  });
+  updateHUD();
+  timer=setInterval(()=>{ sec++; const m=Math.floor(sec/60),s=sec%60; document.getElementById('timer').textContent=`${m}:${s.toString().padStart(2,'0')}`; },1000);
+}
+
+function flipCard(card) {
+  if(!canFlip||card.classList.contains('flipped')||card.classList.contains('matched')) return;
+  card.classList.add('flipped');
+  flipped.push(card);
+  if(flipped.length===2) {
+    moves++;
+    updateHUD();
+    canFlip=false;
+    const delay = diff==='HARD' ? 500 : 900;
+    if(flipped[0].dataset.emoji===flipped[1].dataset.emoji) {
+      flipped.forEach(c=>c.classList.add('matched'));
+      matched++;
+      flipped=[];
+      canFlip=true;
+      updateHUD();
+      if(matched===total/2) win();
+    } else {
+      setTimeout(()=>{ flipped.forEach(c=>c.classList.remove('flipped')); flipped=[]; canFlip=true; },delay);
+    }
+  }
+}
+
+function win() {
+  clearInterval(timer);
+  const m=Math.floor(sec/60),s=sec%60;
+  const ov=document.getElementById('overlay');
+  ov.innerHTML=`
+    <h2 style="color:#00ff88;text-shadow:0 0 20px #00ff88">CLEAR! 🎉</h2>
+    <p>TIME: <span style="color:#a855f7">${m}:${s.toString().padStart(2,'0')}</span></p>
+    <p>MOVES: <span style="color:#a855f7">${moves}</span></p>
+    <button class="btn" onclick="location.reload()">PLAY AGAIN</button>
+  `;
+  ov.style.display='flex';
+}
+
+function updateHUD() {
+  document.getElementById('moves').textContent=moves;
+  document.getElementById('pairs').textContent=`${matched}/${total/2}`;
+}
+</script>
+</body>
+</html>
